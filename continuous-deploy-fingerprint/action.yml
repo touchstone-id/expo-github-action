@@ -23,6 +23,10 @@ inputs:
     description: The relative directory of your Expo app
     required: false
     default: ${{ github.workspace }}
+  platform:
+    description: The platform to build for: "ios", "android", or "all"
+    required: false
+    default: "all"
 
 outputs:
   android-fingerprint:
