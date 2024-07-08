@@ -52,7 +52,7 @@ const deployAndroid = async ({
   });
   let newAndroidBuildInfo: BuildInfo | undefined = undefined;
   if (existingAndroidBuildInfo) {
-    info(`Existing Android build found with matching fingerprint: ${existingAndroidBuildInfo.id}`);
+    info(`Existing Android build found with matching fingerprint: ${existingAndroidBuildInfo.runtimeVersion}`);
   } else {
     info(`No existing Android build found for fingerprint, starting a new build...`);
     newAndroidBuildInfo = await createEASBuildAsync({
@@ -94,7 +94,7 @@ const deployIos = async ({
   });
   let newIosBuildInfo: BuildInfo | undefined = undefined;
   if (existingIosBuildInfo) {
-    info(`Existing iOS build found with matching fingerprint: ${existingIosBuildInfo.id}`);
+    info(`Existing iOS build found with matching fingerprint: ${existingIosBuildInfo.runtimeVersion}`);
   } else {
     info(`No existing iOS build found for fingerprint, starting a new build...`);
     newIosBuildInfo = await createEASBuildAsync({
@@ -116,6 +116,7 @@ export async function continuousDeployFingerprintAction(input = collectContinuou
   }
 
   info('Looking for builds with matching runtime version (fingerprint)...');
+  info(`Platforms: ${input.platform}`);
 
   const shouldDeployAndroid = input.platform === 'android' || input.platform === 'all';
   const shouldDeployIos = input.platform === 'ios' || input.platform === 'all';
