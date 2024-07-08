@@ -16,10 +16,83 @@ export function collectContinuousDeployFingerprintInput() {
     branch: getInput('branch'),
     githubToken: getInput('github-token'),
     workingDirectory: getInput('working-directory'),
+    platform: getInput('platform'),
   };
 }
 
 executeAction(continuousDeployFingerprintAction);
+
+const deployAndroid = async ({
+  input,
+  isInPullRequest,
+  shouldDeployAndroid,
+}: {
+  input: ReturnType<typeof collectContinuousDeployFingerprintInput>;
+  isInPullRequest: boolean;
+  shouldDeployAndroid: boolean;
+}) => {
+  if (!shouldDeployAndroid) return;
+  const androidFingerprintHash = await getFingerprintHashForPlatformAsync({
+    cwd: input.workingDirectory,
+    platform: 'android',
+  });
+  info(`Android fingerprint: ${androidFingerprintHash}`);
+  const existingAndroidBuildInfo = await getBuildInfoWithFingerprintAsync({
+    cwd: input.workingDirectory,
+    platform: 'android',
+    profile: input.profile,
+    fingerprintHash: androidFingerprintHash,
+    excludeExpiredBuilds: isInPullRequest,
+  });
+  let newAndroidBuildInfo: BuildInfo;
+  if (existingAndroidBuildInfo) {
+    info(`Existing Android build found with matching fingerprint: ${existingAndroidBuildInfo.id}`);
+  } else {
+    info(`No existing Android build found for fingerprint, starting a new build...`);
+    newAndroidBuildInfo = await createEASBuildAsync({
+      cwd: input.workingDirectory,
+      platform: 'android',
+      profile: input.profile,
+    });
+  }
+  return { androidFingerprintHash, existingAndroidBuildInfo, newAndroidBuildInfo };
+};
+
+const deployIos = async ({
+  input,
+  isInPullRequest,
+  shouldDeployIos,
+}: {
+  input: ReturnType<typeof collectContinuousDeployFingerprintInput>;
+  isInPullRequest: boolean;
+  shouldDeployIos: boolean;
+}) => {
+  if (!shouldDeployIos) return;
+  const iosFingerprintHash = await getFingerprintHashForPlatformAsync({
+    cwd: input.workingDirectory,
+    platform: 'ios',
+  });
+  info(`iOS fingerprint: ${iosFingerprintHash}`);
+  const existingIosBuildInfo = await getBuildInfoWithFingerprintAsync({
+    cwd: input.workingDirectory,
+    platform: 'ios',
+    profile: input.profile,
+    fingerprintHash: iosFingerprintHash,
+    excludeExpiredBuilds: isInPullRequest,
+  });
+  let newIosBuildInfo: BuildInfo;
+  if (existingIosBuildInfo) {
+    info(`Existing iOS build found with matching fingerprint: ${existingIosBuildInfo.id}`);
+  } else {
+    info(`No existing iOS build found for fingerprint, starting a new build...`);
+    newIosBuildInfo = await createEASBuildAsync({
+      cwd: input.workingDirectory,
+      platform: 'ios',
+      profile: input.profile,
+    });
+  }
+  return { iosFingerprintHash, existingIosBuildInfo, newIosBuildInfo };
+};
 
 export async function continuousDeployFingerprintAction(input = collectContinuousDeployFingerprintInput()) {
   const isInPullRequest = hasPullContext();
@@ -30,71 +103,35 @@ export async function continuousDeployFingerprintAction(input = collectContinuou
     return setFailed(`Missing 'extra.eas.projectId' in app.json or app.config.js.`);
   }
 
-  // const androidFingerprintHash = await getFingerprintHashForPlatformAsync({
-  //   cwd: input.workingDirectory,
-  //   platform: 'android',
-  // });
-
-  const iosFingerprintHash = await getFingerprintHashForPlatformAsync({ cwd: input.workingDirectory, platform: 'ios' });
-
-  // info(`Android fingerprint: ${androidFingerprintHash}`);
-  info(`iOS fingerprint: ${iosFingerprintHash}`);
-
   info('Looking for builds with matching runtime version (fingerprint)...');
 
-  // const existingAndroidBuildInfo = await getBuildInfoWithFingerprintAsync({
-  //   cwd: input.workingDirectory,
-  //   platform: 'android',
-  //   profile: input.profile,
-  //   fingerprintHash: androidFingerprintHash,
-  //   excludeExpiredBuilds: isInPullRequest,
-  // });
+  const shouldDeployAndroid = input.platform === 'android' || input.platform === 'all';
+  const shouldDeployIos = input.platform === 'ios' || input.platform === 'all';
 
-  // let newAndroidBuildInfo: BuildInfo;
-
-  // if (existingAndroidBuildInfo) {
-  //   info(`Existing Android build found with matching fingerprint: ${existingAndroidBuildInfo.id}`);
-  // } else {
-  //   info(`No existing Android build found for fingerprint, starting a new build...`);
-  //   newAndroidBuildInfo = await createEASBuildAsync({
-  //     cwd: input.workingDirectory,
-  //     platform: 'android',
-  //     profile: input.profile,
-  //   });
-  // }
-
-  const existingIosBuildInfo = await getBuildInfoWithFingerprintAsync({
-    cwd: input.workingDirectory,
-    platform: 'ios',
-    profile: input.profile,
-    fingerprintHash: iosFingerprintHash,
-    excludeExpiredBuilds: isInPullRequest,
+  const { androidFingerprintHash, existingAndroidBuildInfo, newAndroidBuildInfo } = await deployAndroid({
+    input,
+    isInPullRequest,
+    shouldDeployAndroid,
   });
 
-  let newIosBuildInfo: BuildInfo;
+  const { iosFingerprintHash, existingIosBuildInfo, newIosBuildInfo } = await deployIos({
+    input,
+    isInPullRequest,
+    shouldDeployIos,
+  });
 
-  if (existingIosBuildInfo) {
-    info(`Existing iOS build found with matching fingerprint: ${existingIosBuildInfo.id}`);
-  } else {
-    info(`No existing iOS build found for fingerprint, starting a new build...`);
-    newIosBuildInfo = await createEASBuildAsync({ cwd: input.workingDirectory, platform: 'ios', profile: input.profile });
-  }
+  const builds = [existingAndroidBuildInfo || newAndroidBuildInfo, existingIosBuildInfo || newIosBuildInfo];
 
-  const builds = [
-    // existingAndroidBuildInfo || newAndroidBuildInfo, 
-    existingIosBuildInfo || newIosBuildInfo];
-
-  info(`Publishing EAS Update...`);
-
-  let updates: EasUpdate[];
+  let updates: EasUpdate[] | null;
 
   // Only publish update if there is a compatible build
-if (existingIosBuildInfo) {
-  updates = await publishEASUpdatesAsync({
-    cwd: input.workingDirectory,
-    branch: input.branch,
-  });
-}
+  if (existingIosBuildInfo) {
+    info(`Publishing EAS Update...`);
+    updates = await publishEASUpdatesAsync({
+      cwd: input.workingDirectory,
+      branch: input.branch,
+    });
+  }
 
   if (!isInPullRequest) {
     info(`Skipped comment: action was not run from a pull request`);
@@ -110,11 +147,11 @@ if (existingIosBuildInfo) {
     });
   }
 
-  // setOutput('android-fingerprint', androidFingerprintHash);
-  setOutput('ios-fingerprint', iosFingerprintHash);
-  // if (newAndroidBuildInfo.id) setOutput('android-build-id', newAndroidBuildInfo.id);
+  if (deployAndroid) setOutput('android-fingerprint', androidFingerprintHash);
+  if (deployIos) setOutput('ios-fingerprint', iosFingerprintHash);
+  if (newAndroidBuildInfo.id) setOutput('android-build-id', newAndroidBuildInfo.id);
   if (newIosBuildInfo.id) setOutput('ios-build-id', newIosBuildInfo.id);
-  if (updates) setOutput('update-output', updates);
+  if (updates?.length) setOutput('update-output', updates);
 }
 
 async function getFingerprintHashForPlatformAsync({
@@ -222,10 +259,21 @@ async function createEASBuildAsync({
   let stdout: string;
   try {
     const extraArgs = isDebug() ? ['--build-logger-level', 'debug'] : [];
-    const autoSubmit = profile === "production" ? ["--auto-submit"] : [];
+    const autoSubmit = profile === 'production' ? ['--auto-submit'] : [];
     const execOutput = await getExecOutput(
       await which('eas', true),
-      ['build', '--profile', profile, '--platform', platform, '--non-interactive', '--json', '--no-wait', ...autoSubmit, ...extraArgs],
+      [
+        'build',
+        '--profile',
+        profile,
+        '--platform',
+        platform,
+        '--non-interactive',
+        '--json',
+        '--no-wait',
+        ...autoSubmit,
+        ...extraArgs,
+      ],
       {
         cwd,
         silent: !isDebug(),
