@@ -24,9 +24,9 @@ inputs:
     required: false
     default: ${{ github.workspace }}
   platform:
-    description: The platform to build for: "ios", "android", or "all"
+    description: The platform to build for - ios, android, or all
     required: false
-    default: "all"
+    default: 'all'
 
 outputs:
   android-fingerprint:

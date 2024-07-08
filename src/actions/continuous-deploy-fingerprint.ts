@@ -31,7 +31,13 @@ const deployAndroid = async ({
   isInPullRequest: boolean;
   shouldDeployAndroid: boolean;
 }) => {
-  if (!shouldDeployAndroid) return;
+  if (!shouldDeployAndroid) {
+    return {
+      androidFingerprintHash: '',
+      existingAndroidBuildInfo: undefined,
+      newAndroidBuildInfo: undefined,
+    };
+  }
   const androidFingerprintHash = await getFingerprintHashForPlatformAsync({
     cwd: input.workingDirectory,
     platform: 'android',
@@ -44,7 +50,7 @@ const deployAndroid = async ({
     fingerprintHash: androidFingerprintHash,
     excludeExpiredBuilds: isInPullRequest,
   });
-  let newAndroidBuildInfo: BuildInfo;
+  let newAndroidBuildInfo: BuildInfo | undefined = undefined;
   if (existingAndroidBuildInfo) {
     info(`Existing Android build found with matching fingerprint: ${existingAndroidBuildInfo.id}`);
   } else {
@@ -67,7 +73,13 @@ const deployIos = async ({
   isInPullRequest: boolean;
   shouldDeployIos: boolean;
 }) => {
-  if (!shouldDeployIos) return;
+  if (!shouldDeployIos) {
+    return {
+      iosFingerprintHash: '',
+      existingIosBuildInfo: undefined,
+      newIosBuildInfo: undefined,
+    };
+  }
   const iosFingerprintHash = await getFingerprintHashForPlatformAsync({
     cwd: input.workingDirectory,
     platform: 'ios',
@@ -80,7 +92,7 @@ const deployIos = async ({
     fingerprintHash: iosFingerprintHash,
     excludeExpiredBuilds: isInPullRequest,
   });
-  let newIosBuildInfo: BuildInfo;
+  let newIosBuildInfo: BuildInfo | undefined = undefined;
   if (existingIosBuildInfo) {
     info(`Existing iOS build found with matching fingerprint: ${existingIosBuildInfo.id}`);
   } else {
@@ -120,12 +132,17 @@ export async function continuousDeployFingerprintAction(input = collectContinuou
     shouldDeployIos,
   });
 
-  const builds = [existingAndroidBuildInfo || newAndroidBuildInfo, existingIosBuildInfo || newIosBuildInfo];
+  const builds = [];
 
-  let updates: EasUpdate[] | null;
+  if (existingAndroidBuildInfo) builds.push(existingAndroidBuildInfo);
+  if (newAndroidBuildInfo) builds.push(newAndroidBuildInfo);
+  if (existingIosBuildInfo) builds.push(existingIosBuildInfo);
+  if (newIosBuildInfo) builds.push(newIosBuildInfo);
+
+  let updates: EasUpdate[] | undefined = undefined;
 
   // Only publish update if there is a compatible build
-  if (existingIosBuildInfo) {
+  if (existingIosBuildInfo || isInPullRequest) {
     info(`Publishing EAS Update...`);
     updates = await publishEASUpdatesAsync({
       cwd: input.workingDirectory,
@@ -147,10 +164,10 @@ export async function continuousDeployFingerprintAction(input = collectContinuou
     });
   }
 
-  if (deployAndroid) setOutput('android-fingerprint', androidFingerprintHash);
-  if (deployIos) setOutput('ios-fingerprint', iosFingerprintHash);
-  if (newAndroidBuildInfo.id) setOutput('android-build-id', newAndroidBuildInfo.id);
-  if (newIosBuildInfo.id) setOutput('ios-build-id', newIosBuildInfo.id);
+  if (shouldDeployAndroid) setOutput('android-fingerprint', androidFingerprintHash);
+  if (shouldDeployIos) setOutput('ios-fingerprint', iosFingerprintHash);
+  if (newAndroidBuildInfo?.id) setOutput('android-build-id', newAndroidBuildInfo.id);
+  if (newIosBuildInfo?.id) setOutput('ios-build-id', newIosBuildInfo.id);
   if (updates?.length) setOutput('update-output', updates);
 }
 
@@ -315,19 +332,19 @@ function createSummaryForUpdatesAndBuilds({
 }: {
   config: ExpoConfig;
   projectId: string;
-  updates: EasUpdate[];
-  builds: BuildInfo[];
+  updates?: EasUpdate[];
+  builds?: BuildInfo[];
   options: { qrTarget?: 'expo-go' | 'dev-build' | 'dev-client'; workingDirectory: string };
 }) {
   const appSlug = config.slug;
   const qrTarget = getQrTarget(options);
   const appSchemes = getSchemesInOrderFromConfig(config) || [];
 
-  const androidBuild = builds.find(build => build.platform === AppPlatform.Android);
-  const iosBuild = builds.find(build => build.platform === AppPlatform.Ios);
+  const androidBuild = builds?.find(build => build.platform === AppPlatform.Android);
+  const iosBuild = builds?.find(build => build.platform === AppPlatform.Ios);
 
-  const androidUpdate = updates.find(update => update.platform === 'android');
-  const iosUpdate = updates.find(update => update.platform === 'ios');
+  const androidUpdate = updates?.find(update => update.platform === 'android');
+  const iosUpdate = updates?.find(update => update.platform === 'ios');
 
   const getBuildLink = (build: BuildInfo | undefined) =>
     build ? `[Build Permalink](${getBuildLogsUrl(build)})` : 'n/a';
@@ -375,9 +392,9 @@ function createSummaryForUpdatesAndBuilds({
 
   const iosQr = iosQRURL ? `<a href="${iosQRURL}"><img src="${iosQRURL}" width="250px" height="250px" /></a>` : null;
 
-  const platformName = `Platform${updates.length === 1 ? '' : 's'}`;
+  const platformName = `Platform${updates?.length === 1 ? '' : 's'}`;
   const platformValue = updates
-    .map(update => update.platform)
+    ?.map(update => update.platform)
     .sort((a, b) => a.localeCompare(b))
     .map(platform => `**${platform}**`)
     .join(', ');
