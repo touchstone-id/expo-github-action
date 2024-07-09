@@ -220,8 +220,6 @@ async function getBuildInfoWithFingerprintAsync({
         'build:list',
         '--platform',
         platform,
-        '--status',
-        'finished',
         '--buildProfile',
         profile,
         '--runtimeVersion',

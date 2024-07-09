@@ -44691,8 +44691,6 @@ async function getBuildInfoWithFingerprintAsync({ cwd, platform, profile, finger
             'build:list',
             '--platform',
             platform,
-            '--status',
-            'finished',
             '--buildProfile',
             profile,
             '--runtimeVersion',
