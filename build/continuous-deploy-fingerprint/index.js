@@ -44717,6 +44717,7 @@ async function getBuildInfoWithFingerprintAsync({ cwd, platform, profile, finger
     }
     const build = builds[0];
     if (excludeExpiredBuilds) {
+        (0, core_1.info)(`Excluding expired build: ${build.id}`);
         // if the build is expired or will expire within the next day,
         // return null to trigger a new build
         const tomorrow = new Date();
