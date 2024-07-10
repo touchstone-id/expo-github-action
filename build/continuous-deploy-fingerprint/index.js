@@ -44611,7 +44611,7 @@ async function continuousDeployFingerprintAction(input = collectContinuousDeploy
         return (0, core_1.setFailed)(`Missing 'extra.eas.projectId' in app.json or app.config.js.`);
     }
     (0, core_1.info)('Looking for builds with matching runtime version (fingerprint)...');
-    (0, core_1.info)(`Platforms: ${input.platform}`);
+    (0, core_1.info)(`Platforms: ${input.platform}, Profile: ${input.profile}, Branch: ${input.branch}`);
     const shouldDeployAndroid = input.platform === 'android' || input.platform === 'all';
     const shouldDeployIos = input.platform === 'ios' || input.platform === 'all';
     const { androidFingerprintHash, existingAndroidBuildInfo, newAndroidBuildInfo } = await deployAndroid({

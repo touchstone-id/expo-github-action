@@ -116,7 +116,7 @@ export async function continuousDeployFingerprintAction(input = collectContinuou
   }
 
   info('Looking for builds with matching runtime version (fingerprint)...');
-  info(`Platforms: ${input.platform}`);
+  info(`Platforms: ${input.platform}, Profile: ${input.profile}, Branch: ${input.branch}`);
 
   const shouldDeployAndroid = input.platform === 'android' || input.platform === 'all';
   const shouldDeployIos = input.platform === 'ios' || input.platform === 'all';
