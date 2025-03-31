@@ -170,6 +170,7 @@ export async function continuousDeployFingerprintAction(input = collectContinuou
   if (newAndroidBuildInfo?.id) setOutput('android-build-id', newAndroidBuildInfo.id);
   if (newIosBuildInfo?.id) setOutput('ios-build-id', newIosBuildInfo.id);
   if (updates?.length) setOutput('update-output', updates);
+  if (input.profile) setOutput('profile', input.profile);
 }
 
 async function getFingerprintHashForPlatformAsync({
