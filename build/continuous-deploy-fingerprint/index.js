@@ -44675,6 +44675,8 @@ async function continuousDeployFingerprintAction(input = collectContinuousDeploy
         (0, core_1.setOutput)('ios-build-id', newIosBuildInfo.id);
     if (updates?.length)
         (0, core_1.setOutput)('update-output', updates);
+    if (input.profile)
+        (0, core_1.setOutput)('profile', input.profile);
 }
 exports.continuousDeployFingerprintAction = continuousDeployFingerprintAction;
 async function getFingerprintHashForPlatformAsync({ cwd, platform, }) {
